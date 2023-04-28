@@ -91,6 +91,7 @@ def check_inprogress_events_from_user(user_id):
     return events
 
 
+
 if __name__ == '__main__':
     print(check_inprogress_events_from_user(123))
 
