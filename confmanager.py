@@ -3,7 +3,7 @@ import json
 
 class confmanager:
     def __init__(self):
-        config_file = open('config.json')
+        config_file = open('config/config.json')
         self.config = json.load(config_file)
         self.token = self.config["TOKEN"]
         self.event_channel = self.config["EVENT_CHANNEL_ID"]

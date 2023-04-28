@@ -1,5 +1,5 @@
 venv
 .venv
-config.json
-event-inprogress.json
-event-submitted.json
+config/config.json
+statefiles/event-inprogress.json
+statefiles/event-submitted.json
