@@ -10,7 +10,7 @@ class ResponseCodes(Enum):
 
 
 def initialize_event(event_name, user_id, event_link):
-    inprogress_file_name = 'event-inprogress.json'
+    inprogress_file_name = '../event-inprogress.json'
     with open(inprogress_file_name) as f:
         inprogress_data = json.load(f)
     print(inprogress_data)
@@ -30,7 +30,7 @@ def initialize_event(event_name, user_id, event_link):
 
 
 def override_event(event_name, user_id, event_link):
-    inprogress_file_name = 'event-inprogress.json'
+    inprogress_file_name = '../event-inprogress.json'
     is_event_found = False
     with open(inprogress_file_name) as f:
         inprogress_data = json.load(f)
@@ -50,7 +50,7 @@ def override_event(event_name, user_id, event_link):
 
 
 def delete_inprogress_event(event_name, user_id=None):
-    inprogress_file_name = 'event-inprogress.json'
+    inprogress_file_name = '../event-inprogress.json'
     with open(inprogress_file_name) as f:
         inprogress_data = json.load(f)
     for event in inprogress_data.copy():
@@ -64,7 +64,7 @@ def delete_inprogress_event(event_name, user_id=None):
 
 
 def set_event_description(event_name, user_id, event_description):
-    inprogress_file_name = 'event-inprogress.json'
+    inprogress_file_name = '../event-inprogress.json'
     is_overwrite = False
     with open(inprogress_file_name) as f:
         inprogress_data = json.load(f)
@@ -81,7 +81,7 @@ def set_event_description(event_name, user_id, event_description):
 
 
 def check_inprogress_events_from_user(user_id):
-    inprogress_file_name = 'event-inprogress.json'
+    inprogress_file_name = '../event-inprogress.json'
     with open(inprogress_file_name) as f:
         inprogress_data = json.load(f)
     events: list = []
