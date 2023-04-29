@@ -49,7 +49,7 @@ async def on_event_description(event: message_events.DMMessageCreateEvent) -> No
             new_event: Event = eventcreator.get_event(event_name, message.author.id)
             print("event name", new_event.event_name)
 
-            await message.author.send("your event will be representated like this:\n")
+            await message.author.send("your event will be represented like this:\n")
             await message.author.send(new_event)
             await message.author.send("If you want to change the description of your event"
                                             " repeat your last message with the new description.\n\n"

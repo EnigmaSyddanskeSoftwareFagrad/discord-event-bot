@@ -4,6 +4,7 @@ import re
 from typing import Callable, Iterable, Optional, Self, TypeVar
 import uuid
 from enum import Enum
+import os
 
 class EventState(Enum):
     in_progress = 'in_progress'
@@ -39,6 +40,7 @@ class Event:
 EVENTS_FILE_NAME = 'statefiles/events.json'
 
 def load_events() -> list[Event]:
+    os.makedirs('statefiles/', exist_ok=True)
     with open(EVENTS_FILE_NAME) as events_file:
         events_dict: list[dict] = json.load(events_file)
 
@@ -46,7 +48,8 @@ def load_events() -> list[Event]:
     return events
 
 def save_events(events: list[Event]):
-    with open(EVENTS_FILE_NAME) as events_file:
+    os.makedirs('statefiles/', exist_ok=True)
+    with open(EVENTS_FILE_NAME, 'w+') as events_file:
         json.dump(events, events_file)
 
 
