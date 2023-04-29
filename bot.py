@@ -3,8 +3,7 @@ import hikari
 from hikari.events import message_events
 import lightbulb
 import confmanager
-import eventcreator
-from eventcreator import Event
+from events import Event, EventManager, DuplicateEventError
 
 config = confmanager.ConfManager()
 bot = lightbulb.BotApp(token=config.token)
@@ -43,10 +42,12 @@ async def on_event_description(event: message_events.DMMessageCreateEvent) -> No
         if match:
             event_name = match.group("event_name")
             description = message.content.replace(f"<@{me.id}> name:{event_name} description:", "")
-            eventcreator.set_event_description(event_name, message.author.id, description)
+            with EventManager() as eventmanager:
+                eventmanager.set_event_description(event_name, message.author.id, description)
             await message.author.send("Thank you for using \"Enigma Event Bot\"! "
                                             "Your event will be added shortly...")
-            new_event: Event = eventcreator.get_event(event_name, message.author.id)
+            with EventManager() as eventmanager:
+                new_event: Event = eventmanager.get_event_or_error(event_name, message.author.id)
             print("event name", new_event.event_name)
 
             await message.author.send("your event will be represented like this:\n")
@@ -75,12 +76,14 @@ async def on_event_post(event: message_events.DMMessageCreateEvent) -> None:
         match = pattern.match(message.content)
         if match is not None:
             event_name = match.group("event_name")
-            new_event: Event = eventcreator.get_event(event_name, message.author.id)
+            with EventManager() as eventmanager:
+                new_event: Event = eventmanager.get_event_or_error(event_name, message.author.id)
             print("event name", new_event.event_name)
             event_channel = config.event_channel
             await bot.rest.create_message(event_channel, new_event)
             await message.author.send("Your event has been posted!")
-            eventcreator.submit_event(message.author.id, event_name)
+            with EventManager() as eventmanager:
+                eventmanager.submit_event(message.author.id, event_name)
         else:
             await message.author.send("sorry I couldn't extract the name of the event")
 
@@ -97,8 +100,9 @@ async def add_event(ctx: lightbulb.SlashContext):
     await bot.rest.create_message(event_channel, f"**{ctx.options.event_name}**\n{ctx.options.event_link}")
     await ctx.respond(ctx.options.event_name)
     try:
-        eventcreator.initialize_event(ctx.options.event_name, ctx.author.id, ctx.options.event_link)
-    except eventcreator.DuplicateEventError as e:
+        with EventManager() as eventmanager:
+            eventmanager.add_event(Event(ctx.options.event_name, ctx.options.event_link, ctx.author.id))
+    except DuplicateEventError as e:
         await ctx.author.send(
             f'You already have an event with this name, please delete it first with the command: \n\n'
             f'`@Enigma-event-bot#1500 delete-event: {ctx.options.event_name}`')
