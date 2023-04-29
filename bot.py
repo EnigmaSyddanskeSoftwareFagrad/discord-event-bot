@@ -12,7 +12,6 @@ bot = lightbulb.BotApp(token=disc_values.get_token())
 
 @bot.listen()
 async def ping(event: hikari.GuildMessageCreateEvent) -> None:
-    """If a non-bot user mentions your bot, respond with 'Pong!'."""
     if not event.is_human:
         return
 
@@ -73,7 +72,7 @@ async def on_event_post(event: hikari.events.message_events.DMMessageCreateEvent
 @lightbulb.add_checks(lightbulb.has_roles(disc_values.get_enigma_role_id()))
 @lightbulb.option("event_name", "Name of the event", str)
 @lightbulb.option("event_link", "Link to facebook event", str)
-@lightbulb.command('addevent', 'sends pong')
+@lightbulb.command('addevent', 'start an event submission')
 @lightbulb.implements(lightbulb.SlashCommand)
 async def add_event(ctx: lightbulb.SlashContext):
     print("add event")
