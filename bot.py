@@ -5,6 +5,7 @@ import hikari
 import lightbulb
 import confmanager
 import eventcreator
+from eventcreator import Event
 
 disc_values = confmanager.ConfManager()
 bot = lightbulb.BotApp(token=disc_values.token)
@@ -36,7 +37,7 @@ async def on_event_description(event: hikari.events.message_events.DMMessageCrea
             eventcreator.set_event_description(event_name, event.message.author.id, description)
             await event.message.author.send("Thank you for using \"Enigma Event Bot\"! "
                                             "Your event will be added shortly...")
-            new_event: eventcreator.Event = eventcreator.get_event(event_name, event.message.author.id)
+            new_event: Event = eventcreator.get_in_progress_event(event_name, event.message.author.id)
             print("event name", new_event.event_name)
 
             await event.message.author.send("your event will be representated like this:\n")
@@ -58,7 +59,7 @@ async def on_event_post(event: hikari.events.message_events.DMMessageCreateEvent
         pattern = re.compile(r"^<@\d+> post name:(?P<event_name>.*?)$")
         event_name = pattern.match(event.message.content).group("event_name")
         if event_name:
-            new_event: eventcreator.Event = eventcreator.get_event(event_name, event.message.author.id)
+            new_event: Event = eventcreator.get_in_progress_event(event_name, event.message.author.id)
             print("event name", new_event.event_name)
             event_channel = disc_values.event_channel
             await bot.rest.create_message(event_channel, new_event)
@@ -80,12 +81,12 @@ async def add_event(ctx: lightbulb.SlashContext):
     await bot.rest.create_message(event_channel, f"**{ctx.options.event_name}**\n{ctx.options.event_link}")
     await ctx.respond(ctx.options.event_name)
     status = eventcreator.initialize_event(ctx.options.event_name, ctx.author.id, ctx.options.event_link)
-    if status == eventcreator.ResponseCodes.OK:
+    if status == eventcreator.ResponseCode.OK:
         await ctx.author.send(
             "Thank you for using \"Enigma Event Bot\"! Your event will be added shortly, please provide"
             f' a description in the next message, prefixed with:'
             f' \n\n@Enigma-event-bot#1500 name:{ctx.options.event_name} description:')
-    elif status == eventcreator.ResponseCodes.DUPLICATE:
+    elif status == eventcreator.ResponseCode.DUPLICATE:
         await ctx.author.send(
             f'You already have an event with this name, please delete it first with the command: \n\n'
             f'@Enigma-event-bot#1500 delete-event: {ctx.options.event_name}')
