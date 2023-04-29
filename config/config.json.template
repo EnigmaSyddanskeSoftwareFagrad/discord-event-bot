@@ -1,5 +1,5 @@
 {
 	"token": "DISCORD BOT TOKEN",
 	"event_channel_id": CHANNEL ID NUMERIC,
-	"enigma_role_id": ROLE ID NUMERIC,
+	"enigma_role_id": ROLE ID NUMERIC
 }
