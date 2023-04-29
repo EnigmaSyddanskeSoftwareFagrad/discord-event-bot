@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import json
 
 @dataclass
-class ConfManager:
+class ConfigManager:
     token: str
     event_channel: int
     enigma_role_id: int
