@@ -37,10 +37,13 @@ class Event:
     def __str__(self):
         return f"***{self.event_name}***\n{self.description}\n\nLink: {self.event_link}"
 
-EVENTS_FILE_NAME = 'statefiles/events.json'
+EVENTS_FILE_PATH = 'statefiles'
+EVENTS_FILE_NAME = f'{EVENTS_FILE_PATH}/events.json'
 
 def load_events() -> list[Event]:
-    os.makedirs('statefiles/', exist_ok=True)
+    if not os.path.exists(EVENTS_FILE_NAME):
+        return []
+
     with open(EVENTS_FILE_NAME) as events_file:
         events_dict: list[dict] = json.load(events_file)
 
@@ -48,7 +51,8 @@ def load_events() -> list[Event]:
     return events
 
 def save_events(events: list[Event]):
-    os.makedirs('statefiles/', exist_ok=True)
+    # create parent folders if they don't exist
+    os.makedirs(EVENTS_FILE_PATH, exist_ok=True)
     with open(EVENTS_FILE_NAME, 'w+') as events_file:
         json.dump(events, events_file)
 
