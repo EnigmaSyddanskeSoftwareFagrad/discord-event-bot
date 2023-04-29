@@ -7,7 +7,7 @@ import confmanager
 import eventcreator
 
 disc_values = confmanager.ConfManager()
-bot = lightbulb.BotApp(token=disc_values.get_token())
+bot = lightbulb.BotApp(token=disc_values.token)
 
 
 @bot.listen()
@@ -27,12 +27,12 @@ async def on_event_description(event: hikari.events.message_events.DMMessageCrea
         return
     print("on event description")
     print(event.message.content)
-    if event.message.content.startswith(f'<@{disc_values.get_bot_id()}> name:'):
+    if event.message.content.startswith(f'<@{disc_values.bot_id}> name:'):
         pattern = re.compile(r"^<@\d+> name:(?P<event_name>.*?) description:")
         match = pattern.match(event.message.content)
         if match:
             event_name = match.group("event_name")
-            description = event.message.content.replace(f"<@{disc_values.get_bot_id()}> name:{event_name} description:", "")
+            description = event.message.content.replace(f"<@{disc_values.bot_id}> name:{event_name} description:", "")
             eventcreator.set_event_description(event_name, event.message.author.id, description)
             await event.message.author.send("Thank you for using \"Enigma Event Bot\"! "
                                             "Your event will be added shortly...")
@@ -54,13 +54,13 @@ async def on_event_post(event: hikari.events.message_events.DMMessageCreateEvent
         return
     print("on event post")
     print(event.message.content)
-    if event.message.content.startswith(f'<@{disc_values.get_bot_id()}> post name:'):
+    if event.message.content.startswith(f'<@{disc_values.bot_id}> post name:'):
         pattern = re.compile(r"^<@\d+> post name:(?P<event_name>.*?)$")
         event_name = pattern.match(event.message.content).group("event_name")
         if event_name:
             new_event: eventcreator.Event = eventcreator.get_event(event_name, event.message.author.id)
             print("event name", new_event.event_name)
-            event_channel = disc_values.get_event_channel()
+            event_channel = disc_values.event_channel
             await bot.rest.create_message(event_channel, new_event)
             await event.message.author.send("Your event has been posted!")
             eventcreator.submit_event(event.message.author.id, event_name)
@@ -69,14 +69,14 @@ async def on_event_post(event: hikari.events.message_events.DMMessageCreateEvent
 
 
 @bot.command
-@lightbulb.add_checks(lightbulb.has_roles(disc_values.get_enigma_role_id()))
+@lightbulb.add_checks(lightbulb.has_roles(disc_values.enigma_role_id))
 @lightbulb.option("event_name", "Name of the event", str)
 @lightbulb.option("event_link", "Link to facebook event", str)
 @lightbulb.command('addevent', 'start an event submission')
 @lightbulb.implements(lightbulb.SlashCommand)
 async def add_event(ctx: lightbulb.SlashContext):
     print("add event")
-    event_channel = disc_values.get_event_channel()
+    event_channel = disc_values.event_channel
     await bot.rest.create_message(event_channel, f"**{ctx.options.event_name}**\n{ctx.options.event_link}")
     await ctx.respond(ctx.options.event_name)
     status = eventcreator.initialize_event(ctx.options.event_name, ctx.author.id, ctx.options.event_link)
