@@ -44,9 +44,8 @@ async def on_event_description(event: message_events.DMMessageCreateEvent) -> No
             description = message.content.replace(f"<@{me.id}> name:{event_name} description:", "")
             with EventManager() as eventmanager:
                 eventmanager.set_event_description(event_name, message.author.id, description)
-            await message.author.send("Thank you for using \"Enigma Event Bot\"! "
+                await message.author.send("Thank you for using \"Enigma Event Bot\"! "
                                             "Your event will be added shortly...")
-            with EventManager() as eventmanager:
                 new_event: Event = eventmanager.get_event_or_error(event_name, message.author.id)
             print("event name", new_event.event_name)
 
@@ -78,11 +77,10 @@ async def on_event_post(event: message_events.DMMessageCreateEvent) -> None:
             event_name = match.group("event_name")
             with EventManager() as eventmanager:
                 new_event: Event = eventmanager.get_event_or_error(event_name, message.author.id)
-            print("event name", new_event.event_name)
-            event_channel = config.event_channel
-            await bot.rest.create_message(event_channel, new_event)
-            await message.author.send("Your event has been posted!")
-            with EventManager() as eventmanager:
+                print("event name", new_event.event_name)
+                event_channel = config.event_channel
+                await bot.rest.create_message(event_channel, new_event)
+                await message.author.send("Your event has been posted!")
                 eventmanager.submit_event(message.author.id, event_name)
         else:
             await message.author.send("sorry I couldn't extract the name of the event")
