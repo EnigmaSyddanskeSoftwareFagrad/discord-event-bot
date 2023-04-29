@@ -3,3 +3,4 @@ venv
 config/config.json
 statefiles/event-in-progress.json
 statefiles/event-submitted.json
+.vscode
