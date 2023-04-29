@@ -1,90 +1,129 @@
+from dataclasses import dataclass, field
 import json
 import re
-import string
-from typing import Callable, Iterable, TypeVar
+from typing import Callable, Iterable, Optional, Self, TypeVar
 import uuid
 from enum import Enum
 
+class EventState(Enum):
+    in_progress = 'in_progress'
+    submitted = 'submitted'
+
+class DuplicateEventError(Exception):
+    pass
+class EventNotFoundError(Exception):
+    pass
+
+@dataclass
 class Event:
-    def __init__(self, event_name: string, event_link: string, description: string):
-        self.event_name = event_name
-        self.event_link = event_link
-        self.description = description
+    uuid: int
+    event_name: str
+    event_link: str
+    organizer_id: int
+    state: EventState
+    description: str | None = field(default=None)
+
+    @staticmethod
+    def from_dict(data: dict) -> 'Event':
+        uuid = data['uuid']
+        event_name = data['event_name']
+        event_link = data['event_link']
+        organizer_id = data['organizer_id']
+        state = EventState(data['state'])
+        description = data.get('description', None)
+        return Event(uuid, event_name, event_link, organizer_id, state, description)
 
     def __str__(self):
         return f"***{self.event_name}***\n{self.description}\n\nLink: {self.event_link}"
 
-class ResponseCode(Enum):
-    OK = 200
-    DUPLICATE = 409
-    NOT_FOUND = 404
+EVENTS_FILE_NAME = 'statefiles/events.json'
 
-IN_PROGRESS_FILE_NAME = 'statefiles/event-in-progress.json'
-SUBMITTED_FILE_NAME = 'statefiles/event-submitted.json'
+def load_events() -> list[Event]:
+    with open(EVENTS_FILE_NAME) as events_file:
+        events_dict: list[dict] = json.load(events_file)
 
-def initialize_event(event_name: string, user_id: int, event_link: string) -> ResponseCode:
-    with open(IN_PROGRESS_FILE_NAME) as f:
-        in_progress_data: list = json.load(f)
+    events: list[Event] = [Event.from_dict(event) for event in events_dict]
+    return events
 
-    if find_event(in_progress_data, event_name=event_name, user_id=user_id) is not None:
-        return ResponseCode.DUPLICATE
+def save_events(events: list[Event]):
+    with open(EVENTS_FILE_NAME) as events_file:
+        json.dump(events, events_file)
 
-    event = {
-        "UUID": uuid.uuid4().int,
-        "user_id": user_id,
-        "event_name": event_name,
-        "event_link": event_link,
-    }
-    in_progress_data.append(event)
 
-    with open(IN_PROGRESS_FILE_NAME, 'w') as w:
-        json.dump(in_progress_data, w, indent=4)
+def initialize_event(event_name: str, user_id: int, event_link: str):
+    events = load_events()
+    # if the event already exists, raise error
+    if find_event(events, event_name=event_name, user_id=user_id) is not None:
+        raise DuplicateEventError()
 
-    return ResponseCode.OK
+    event = Event(
+        uuid=uuid.uuid4().int,
+        event_name=event_name,
+        event_link=event_link,
+        organizer_id=user_id,
+        state=EventState.in_progress
+    )
+    events.append(event)
 
-def override_event(event_name: string, user_id: int, event_link: string):
-    with open(IN_PROGRESS_FILE_NAME) as f:
-        in_progress_data: list = json.load(f)
+    save_events(events)
 
-    event = find_event(in_progress_data, event_name, user_id)
+def override_event(event_name: str, user_id: int, event_link: str):
+    events = load_events()
+    event = find_event(events, event_name, user_id)
     if event is not None:
-        in_progress_data.remove(event)
-        with open(IN_PROGRESS_FILE_NAME, 'w') as w:
-            json.dump(in_progress_data, w, indent=4)
+        events.remove(event)
+        save_events(events)
 
-    initialize_event(user_id, event_name, event_link)
-    return ResponseCode.OK
+    initialize_event(event_name, user_id, event_link)
 
-def delete_in_progress_event(event_name: string, user_id: int = None):
-    with open(IN_PROGRESS_FILE_NAME) as f:
-        in_progress_data: list = json.load(f)
+def delete_event(event_name: str, user_id: int | None = None):
+    events = load_events()
 
-    event = find_event(event_name=event_name, user_id=user_id)
+    event = find_event(events, event_name=event_name, user_id=user_id)
+    if event is None:
+        raise EventNotFoundError
+
+    events.remove(event)
+    save_events(events)
+
+def set_event_description(event_name: str, user_id: int, event_description: str):
+    events = load_events()
+    event = find_event(events, event_name, user_id)
+    if event is None:
+        raise EventNotFoundError
+
+    event.description = event_description
+    save_events(events)
+
+def events_by_user(user_id: int) -> list:
+    events = load_events()
+    return [event for event in events if event.organizer_id == user_id]
+
+def submit_event(user_id: int, event_name: str):
+    events = load_events()
+    event = find_event(events, event_name, user_id)
+    if event is None:
+        raise EventNotFoundError
+
+    event.state = EventState.submitted
+    save_events(events)
+
+def get_event(event_name: str, user_id: int) -> Event:
+    events = load_events()
+    event = find_event(events, event_name, user_id)
     if event is not None:
-        in_progress_data.remove(event)
-        with open(IN_PROGRESS_FILE_NAME, 'w') as w:
-            json.dump(in_progress_data, w, indent=4)
-        return ResponseCode.OK
+        print("event found: ", event)
+        return event
     else:
-        return ResponseCode.NOT_FOUND
+        print(f'Event not found: {event_name} {user_id}')
+        raise EventNotFoundError
 
-def set_event_description(event_name: string, user_id: int, event_description: string) -> ResponseCode:
-    with open(IN_PROGRESS_FILE_NAME) as f:
-        in_progress_data = json.load(f)
-
-    event = find_event(in_progress_data, event_name, user_id)
-    if event is not None:
-        event["event_description"] = event_description
-        with open(IN_PROGRESS_FILE_NAME, 'w') as w:
-            json.dump(in_progress_data, w, indent=4)
-        return ResponseCode.OK
+def find_event(events: list[Event], event_name: str, user_id: int | None = None) -> Event | None:
+    if user_id is not None:
+        matches_event = lambda event: event["user_id"] == user_id and event["event_name"] == event_name
     else:
-        return ResponseCode.NOT_FOUND
-
-def in_progress_events_by_user(user_id: int) -> list:
-    with open(IN_PROGRESS_FILE_NAME) as f:
-        in_progress_data = json.load(f)
-    return [event for event in in_progress_data if event["user_id"] == user_id]
+        matches_event = lambda event: event["event_name"] == event_name
+    return find(events, matches_event)
 
 T = TypeVar('T')
 def find(collection: Iterable[T], predicate: Callable[[T], bool]) -> T | None:
@@ -92,46 +131,10 @@ def find(collection: Iterable[T], predicate: Callable[[T], bool]) -> T | None:
         if predicate(element):
             return element
 
-def submit_event(user_id: int, event_name: string) -> ResponseCode:
-    with open(IN_PROGRESS_FILE_NAME, 'r') as in_progress_file:
-        in_progress_data: list[dict] = json.load(in_progress_file)
-    with open(SUBMITTED_FILE_NAME, 'r') as submitted_file:
-        submitted_data: list[dict] = json.load(submitted_file)
-
-    # pop the correct event from in_progress
-    event_to_move = find_event(in_progress_data, event_name, user_id)
-    in_progress_data.remove(event_to_move)
-
-    # insert the event into submitted
-    submitted_data.append(event_to_move)
-
-    with open(IN_PROGRESS_FILE_NAME, 'w') as in_progress_file:
-        json.dump(in_progress_data, in_progress_file, indent=4)
-    with open(SUBMITTED_FILE_NAME, 'w') as submitted_file:
-        json.dump(submitted_data, submitted_file, indent=4)
-    return ResponseCode.OK
-
-def get_in_progress_event(event_name: string, user_id: int) -> Event | None:
-    with open(IN_PROGRESS_FILE_NAME) as f:
-        submitted_data = json.load(f)
-
-    event = find_event(submitted_data, event_name, user_id)
-    if event is not None:
-        print("event found: ", event)
-        return Event(event["event_name"], event["event_link"], event["event_description"])
-    else:
-        print(f'Event not found: {event_name} {user_id}')
-        return None
-
-def find_event(events: list, event_name: str, user_id: int | None = None) -> dict | None:
-    if user_id is not None:
-        matches_event = lambda event: event["user_id"] == user_id and event["event_name"] == event_name
-    else:
-        matches_event = lambda event: event["event_name"] == event_name
-    return find(events, matches_event)
-
 
 if __name__ == '__main__':
     pattern = re.compile(r"^<@\d+> post name:(?P<event_name>.*?)$")
-    event_name = pattern.match("<@1101475630807253002> post name:IT DAY!!! 2023").group("event_name")
-    print(event_name)
+    match = pattern.match("<@1101475630807253002> post name:IT DAY!!! 2023")
+    if match is not None:
+        event_name = match.group("event_name")
+        print(event_name)
