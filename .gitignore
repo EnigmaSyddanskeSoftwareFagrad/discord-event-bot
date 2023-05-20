@@ -1,5 +1,6 @@
 venv
 .venv
 config/config.json
-statefiles/event-inprogress.json
-statefiles/event-submitted.json
+statefiles/events.json
+.vscode
+**.pyc
