@@ -8,14 +8,19 @@ import uuid
 
 from utils import find
 
+
 class EventState(Enum):
     in_progress = 'in_progress'
     submitted = 'submitted'
 
+
 class DuplicateEventError(Exception):
     pass
+
+
 class EventNotFoundError(Exception):
     pass
+
 
 @dataclass
 class Event:
@@ -54,6 +59,7 @@ class Event:
 
     def __hash__(self) -> int:
         return id(self)
+
 
 class EventManager(MutableSet):
     def __enter__(self) -> 'EventManager':
@@ -116,6 +122,7 @@ class EventManager(MutableSet):
 EVENTS_FILE_PATH = 'statefiles'
 EVENTS_FILE_NAME = f'{EVENTS_FILE_PATH}/events.json'
 
+
 def load_events() -> set[Event]:
     if not os.path.exists(EVENTS_FILE_NAME):
         return set()
@@ -125,6 +132,7 @@ def load_events() -> set[Event]:
 
     events: set[Event] = set(Event.from_dict(event) for event in events_dict)
     return events
+
 
 def save_events(events: set[Event]):
     # create parent folders if they don't exist

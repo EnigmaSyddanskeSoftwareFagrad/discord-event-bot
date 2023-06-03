@@ -1,12 +1,15 @@
 import re
 import hikari
+import miru
 from hikari.events import message_events
 import lightbulb
 from configmanager import ConfigManager
 from events import Event, EventManager, DuplicateEventError
+import eventviews
 
 config = ConfigManager()
 bot = lightbulb.BotApp(token=config.token)
+miru.install(bot)
 
 @bot.listen()
 async def ping(event: hikari.GuildMessageCreateEvent) -> None:
@@ -15,6 +18,7 @@ async def ping(event: hikari.GuildMessageCreateEvent) -> None:
 
     if bot.get_me().id in event.message.user_mentions_ids:
         await event.message.respond("Pong!")
+
 
 @bot.listen()
 async def on_event_description(event: message_events.DMMessageCreateEvent) -> None:
@@ -33,7 +37,7 @@ async def on_event_description(event: message_events.DMMessageCreateEvent) -> No
             with EventManager() as eventmanager:
                 eventmanager.set_event_description(event_name, description)
                 await message.author.send("Thank you for using \"Enigma Event Bot\"! "
-                                            "Your event will be added shortly...")
+                                          "Your event will be added shortly...")
                 new_event: Event = eventmanager[event_name]
             print("event name", new_event.name)
 
@@ -47,6 +51,7 @@ async def on_event_description(event: message_events.DMMessageCreateEvent) -> No
             )
         else:
             await message.author.send("sorry I couldn't extract the name of the event")
+
 
 @bot.listen()
 async def on_event_post(event: message_events.DMMessageCreateEvent) -> None:
@@ -64,7 +69,9 @@ async def on_event_post(event: message_events.DMMessageCreateEvent) -> None:
                 new_event: Event = eventmanager[event_name]
                 print("event name", new_event.name)
                 event_channel = config.event_channel
-                await bot.rest.create_message(event_channel, new_event)
+                view = eventviews.EventView(timeout=60)
+                message = await bot.rest.create_message(event_channel, new_event, components=view)
+                await view.start(message)
                 await message.author.send("Your event has been posted!")
                 eventmanager.submit_event(event_name)
         else:
@@ -97,4 +104,5 @@ async def add(ctx: lightbulb.SlashContext):
 
 
 if __name__ == '__main__':
+    print(dir(eventviews.EventView))
     bot.run()
