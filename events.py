@@ -115,6 +115,7 @@ class EventManager(MutableSet):
         event.description = event_description
 
     def submit_event(self, event_name: str):
+        print("submitting event")
         event = self[event_name]
         event.state = EventState.submitted
 
