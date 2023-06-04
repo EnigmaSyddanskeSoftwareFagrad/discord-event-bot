@@ -14,3 +14,5 @@ class ConfigManager:
         self.token = self.config["token"]
         self.event_channel = self.config["event_channel_id"]
         self.enigma_role_id = self.config["enigma_role_id"]
+        self.guild_id = self.config["enigma_discord_id"]
+        self.role_channel = self.config["role_channel_id"]

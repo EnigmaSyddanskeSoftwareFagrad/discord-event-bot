@@ -6,10 +6,14 @@ import lightbulb
 from configmanager import ConfigManager
 from events import Event, EventManager, DuplicateEventError
 import eventviews
+import datetime
+from roleview import RoleView
 
 config = ConfigManager()
 bot = lightbulb.BotApp(token=config.token)
 miru.install(bot)
+year_roles: dict[int, hikari.Role.id] = {}
+
 
 @bot.listen()
 async def ping(event: hikari.GuildMessageCreateEvent) -> None:
@@ -67,14 +71,17 @@ async def on_event_post(event: message_events.DMMessageCreateEvent) -> None:
             event_name = match.group("event_name")
             with EventManager() as eventmanager:
                 new_event: Event = eventmanager[event_name]
-                embed = hikari.Embed(title=new_event.name, description=new_event.description, url=new_event.link, color=0x00ff00)
+                embed = hikari.Embed(title=new_event.name, description=new_event.description, url=new_event.link,
+                                     color=0x00ff00)
                 embed.set_image("https://i.imgur.com/DrbEhX1.png")
-                embed.set_author(name="Enigma", icon="https://scontent-arn2-1.xx.fbcdn.net/v/t39.30808-6/299209164_563252378919250_6215217745944829422_n.png?_nc_cat=101&ccb=1-7&_nc_sid=09cbfe&_nc_ohc=XMIn9SG-r54AX-2b8Hb&_nc_oc=AQmBvuiHPZzvUjUn976MLKMpYv5nuXNIyg-UJaf8z5BOM6ThPiTuiEFcxF1m5se4MYI&_nc_ht=scontent-arn2-1.xx&oh=00_AfCypwoZ-e6RnT400Mpr7g4JmMrUbEKDJYMcrA_KZ_S-RA&oe=6480BA81")
+                embed.set_author(name="Enigma",
+                                 icon="https://scontent-arn2-1.xx.fbcdn.net/v/t39.30808-6/299209164_563252378919250_6215217745944829422_n.png?_nc_cat=101&ccb=1-7&_nc_sid=09cbfe&_nc_ohc=XMIn9SG-r54AX-2b8Hb&_nc_oc=AQmBvuiHPZzvUjUn976MLKMpYv5nuXNIyg-UJaf8z5BOM6ThPiTuiEFcxF1m5se4MYI&_nc_ht=scontent-arn2-1.xx&oh=00_AfCypwoZ-e6RnT400Mpr7g4JmMrUbEKDJYMcrA_KZ_S-RA&oe=6480BA81")
                 embed.set_footer(text="Syddanske Softwarestuderendes Fagråd")
                 print("event name", new_event.name)
                 event_channel = config.event_channel
                 view = eventviews.EventView(timeout=60)
-                message = await bot.rest.create_message(event_channel, components=view, embed=embed, flags=message.flags.EPHEMERAL)
+                message = await bot.rest.create_message(event_channel, components=view, embed=embed,
+                                                        flags=message.flags.EPHEMERAL)
                 await view.start(message)
                 await message.author.send("Your event has been posted!")
                 eventmanager.submit_event(event_name)
@@ -107,6 +114,32 @@ async def add(ctx: lightbulb.SlashContext):
             f' \n\n`<@{bot.get_me().id}> name:{ctx.options.event_name} description:`')
 
 
+@bot.command
+@lightbulb.add_checks(lightbulb.has_roles(config.enigma_role_id))
+@lightbulb.command("update_years", 'Add 5 subsequent years as roles')
+@lightbulb.implements(lightbulb.SlashCommand)
+async def update_year(ctx: lightbulb.SlashContext):
+    #THIS LOOP IS ONLY FOR TESTING
+    #for role in await bot.rest.fetch_roles(config.guild_id):
+    #    if role.name.startswith("20"):
+    #        await bot.rest.delete_role(role=role, guild=config.guild_id)
+
+    years = [datetime.date.today().year - i for i in range(6)]
+    for year, role in year_roles.items():
+        if year not in years:
+            await bot.rest.delete_role(role, config.guild_id)
+            await ctx.respond(f"deleted role: {year}")
+            del year_roles[year]
+
+    for year in years:
+        if year not in year_roles.keys():
+            created_role = await bot.rest.create_role(name=str(year), guild=config.guild_id, color=0x00ff00, hoist=True, mentionable=True)
+            await ctx.respond(f"added role: {year}")
+            year_roles[year] = created_role
+    await ctx.respond("done")
+    role_view = RoleView(year_roles)
+    message = await bot.rest.create_message(config.role_channel, components=role_view, content="React to this message to get your year role!")
+    await role_view.start(message)
+
 if __name__ == '__main__':
-    print(dir(eventviews.EventView))
     bot.run()
