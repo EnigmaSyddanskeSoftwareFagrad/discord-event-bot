@@ -13,6 +13,8 @@ class RoleView(miru.View):
                       options=[miru.SelectOption(label="placeholder")])
     async def role_select(self, select: miru.TextSelect, ctx: miru.ViewContext) -> None:
         print("role select")
+        # Discord does not allow you to instantiate options in run-time, so we have to do this manually by creating
+        # it at compile time, and then modifying it at run-time.
         if select.values[0] == "placeholder":
             self.select = select
             options: list[hikari.SelectMenuOption] = [hikari.SelectMenuOption(
