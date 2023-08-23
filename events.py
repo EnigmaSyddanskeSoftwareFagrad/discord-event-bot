@@ -30,6 +30,7 @@ class Event:
     state: EventState = field(default=EventState.in_progress)
     description: str | None = field(default=None)
     uuid: int = field(default=uuid.uuid4().int)
+    image_link: str | None = field(default=None)
 
     def __eq__(self, other: 'Event') -> bool:
         return self.name == other.name
@@ -41,6 +42,7 @@ class Event:
         event_link = data['link']
         organizer_id = data['organizer_id']
         state = EventState(data['state'])
+        image_link = data.get('image_link', None)
         description = data.get('description', None)
         return Event(event_name, event_link, organizer_id, state, description)
 
@@ -51,11 +53,12 @@ class Event:
             'link': self.link,
             'organizer_id': self.organizer_id,
             'state': self.state.value,
+            'image_link': self.image_link,
             'description': self.description
         }
 
     def __str__(self):
-        return f"***{self.name}***\n{self.description}\n\nLink: {self.link}"
+        return f"***{self.name}***\n{self.description}\n\nLink: {self.link} \n\n {self.image_link}"
 
     def __hash__(self) -> int:
         return id(self)
@@ -114,6 +117,10 @@ class EventManager(MutableSet):
         event = self[event_name]
         event.description = event_description
 
+    def set_image_link(self, event_name: str, image_link: str):
+        event = self[event_name]
+        event.image_link = image_link
+
     def submit_event(self, event_name: str):
         print("submitting event")
         event = self[event_name]
@@ -147,3 +154,16 @@ if __name__ == '__main__':
     match = pattern.match("<@1101475630807253002> post name:IT DAY!!! 2023")
     if match is not None:
         print(match.group("event_name"))
+    import requests
+
+    url = 'https://avatars.githubusercontent.com/u/112754344?s=200&v=4'
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        content_type = response.headers['content-type']
+        if 'image' in content_type:
+            print('This is a valid image URL.')
+        else:
+            print('This is not an image URL.')
+    else:
+        print('Failed to retrieve the URL.')

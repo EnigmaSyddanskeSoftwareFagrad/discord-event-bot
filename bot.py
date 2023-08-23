@@ -14,6 +14,9 @@ bot = lightbulb.BotApp(token=config.token)
 miru.install(bot)
 year_roles: dict[int, hikari.Role.id] = {}
 
+new_event_qualifier = "new event qualifier"
+post_event_qualifier = "post event qualifier"
+
 
 @bot.listen()
 async def ping(event: hikari.GuildMessageCreateEvent) -> None:
@@ -25,68 +28,59 @@ async def ping(event: hikari.GuildMessageCreateEvent) -> None:
 
 
 @bot.listen()
-async def on_event_description(event: message_events.DMMessageCreateEvent) -> None:
-    if not event.is_human: return
-    message = event.message
+async def on_event_description(message: hikari.GuildMessageCreateEvent) -> None:
+    (is_reply, event) = is_reply_action(new_event_qualifier, message)
+    if not is_reply:
+        return
+    prototype_channel = config.event_prototype_channel
     print("on event description")
     print(message.content)
-    if message.content is None: return
-    if message.content.startswith(f'<@{bot.get_me().id}> name:'):
-        pattern = re.compile(r"^<@\d+> name:\s*(?P<event_name>\S.*) description:")
-        match = pattern.match(message.content)
-        if match:
-            event_name = match.group("event_name")
-            print(f'{event_name = }')
-            description = message.content.removeprefix(f"<@{bot.get_me().id}> name:{event_name} description:").strip()
-            with EventManager() as eventmanager:
-                eventmanager.set_event_description(event_name, description)
-                await message.author.send("Thank you for using \"Enigma Event Bot\"! "
-                                          "Your event will be added shortly...")
-                new_event: Event = eventmanager[event_name]
-            print("event name", new_event.name)
+    pattern = r'https?:\/\/[^ ]+\.(png|jpg|svg|webp)'
+    img_link = message.content.split("\n")[0]
+    event_description = message.content.removeprefix(img_link + "\n")
+    print(f'{event_description = }')
+    match = event.split("\n")
+    event_name = match[0].replace("**", "")
+    print(f'{event_name = }')
+    with EventManager() as eventmanager:
+        eventmanager.set_event_description(event_name, event_description)
+        eventmanager.set_image_link(event_name, img_link)
+        new_event: Event = eventmanager[event_name]
+        print("event name", new_event.name)
 
-            await message.author.send("your event will be represented like this:\n")
-            await message.author.send(new_event)
-            await message.author.send(
-                f"If you want to change the description of your event, "
-                f"repeat your last message with the new description.\n\n"
-                f"if you want to post your event send:\n"
-                f"`<@{bot.get_me().id}> post name:{event_name}`"
-            )
-        else:
-            await message.author.send("sorry I couldn't extract the name of the event")
+        await bot.rest.create_message(prototype_channel,
+                                      "your event will be represented like this without the qualifier:\n")
+        await bot.rest.create_message(prototype_channel, f"{post_event_qualifier}\n{new_event}")
+        await bot.rest.create_message(prototype_channel,
+                                      f"If you want to change your event, "
+                                      f"you can redo this step by"
+                                      f"replying to the message that starts with: {new_event_qualifier} \n "
+                                      )
 
 
 @bot.listen()
-async def on_event_post(event: message_events.DMMessageCreateEvent) -> None:
-    if not event.is_human: return
-    message = event.message
+async def on_event_post(message: hikari.GuildMessageCreateEvent) -> None:
+    (is_reply, event) = is_reply_action(post_event_qualifier, message)
+    if not is_reply:
+        return
     print("on event post")
-    print(message.content)
-    if message.content is None: return
-    if message.content.startswith(f'<@{bot.get_me().id}> post name:'):
-        pattern = re.compile(r"^<@\d+> post name:\s*(?P<event_name>\S.*)$")
-        match = pattern.match(message.content)
-        if match is not None:
-            event_name = match.group("event_name")
-            with EventManager() as eventmanager:
-                new_event: Event = eventmanager[event_name]
-                embed = hikari.Embed(title=new_event.name, description=new_event.description, url=new_event.link,
-                                     color=0x00ff00)
-                embed.set_image("https://i.imgur.com/DrbEhX1.png")
-                embed.set_author(name="Enigma",
-                                 icon="https://scontent-arn2-1.xx.fbcdn.net/v/t39.30808-6/299209164_563252378919250_6215217745944829422_n.png?_nc_cat=101&ccb=1-7&_nc_sid=09cbfe&_nc_ohc=XMIn9SG-r54AX-2b8Hb&_nc_oc=AQmBvuiHPZzvUjUn976MLKMpYv5nuXNIyg-UJaf8z5BOM6ThPiTuiEFcxF1m5se4MYI&_nc_ht=scontent-arn2-1.xx&oh=00_AfCypwoZ-e6RnT400Mpr7g4JmMrUbEKDJYMcrA_KZ_S-RA&oe=6480BA81")
-                embed.set_footer(text="Syddanske Softwarestuderendes Fagråd")
-                print("event name", new_event.name)
-                event_channel = config.event_channel
-                view = eventviews.EventView(timeout=60)
-                message = await bot.rest.create_message(event_channel, components=view, embed=embed,
-                                                        flags=message.flags.EPHEMERAL)
-                await view.start(message)
-                await message.author.send("Your event has been posted!")
-                eventmanager.submit_event(event_name)
-        else:
-            await message.author.send("sorry I couldn't extract the name of the event")
+    event_name = event.split("\n")[0].replace("***", "")
+    print(f'{event_name = }')
+    with EventManager() as eventmanager:
+        new_event: Event = eventmanager[event_name]
+        embed = hikari.Embed(title=event_name, description=str(new_event.description), url=new_event.link,
+                             color=0x00ff00)
+        embed.set_image(new_event.image_link)
+        embed.set_author(name="Enigma", icon="https://avatars.githubusercontent.com/u/112754344?s=200&v=4")
+        embed.set_footer(text="Syddanske Softwarestuderendes Fagråd")
+        print("event name", new_event.name)
+        event_channel = config.event_channel
+        view = eventviews.EventView(timeout=60)
+        event_post = await bot.rest.create_message(event_channel, components=view, embed=embed,
+                                                flags=hikari.MessageFlag.EPHEMERAL)
+        await view.start(event_post)
+        await message.message.add_reaction("👍")
+        eventmanager.submit_event(event_name)
 
 
 @bot.command
@@ -96,22 +90,26 @@ async def on_event_post(event: message_events.DMMessageCreateEvent) -> None:
 @lightbulb.command('addevent', 'start an event submission')
 @lightbulb.implements(lightbulb.SlashCommand)
 async def add(ctx: lightbulb.SlashContext):
+    ''' Message structure is as follows:
+        Line 1: qualifier
+        Line 2: event name
+    '''
     print("add event")
-    event_channel = config.event_channel
-    await bot.rest.create_message(event_channel, f"**{ctx.options.event_name}**\n{ctx.options.event_link}")
-    await ctx.respond(ctx.options.event_name)
+    prototype_channel = config.event_prototype_channel
+    if "\n" in ctx.options.event_name:
+        await ctx.respond("event name cannot contain newline \n aborting....")
+    await bot.rest.create_message(prototype_channel,
+                                  f"{new_event_qualifier}\n"
+                                  f"**{ctx.options.event_name}**\n{ctx.options.event_link} \n under construction, "
+                                  "Thank you for using \"Enigma Event Bot\"! Your event will be added shortly, "
+                                  "please reply with a description and a picture.")
     try:
         with EventManager() as eventmanager:
             eventmanager.add(Event(ctx.options.event_name, ctx.options.event_link, ctx.author.id))
     except DuplicateEventError as e:
-        await ctx.author.send(
+        await ctx.respond(
             f'You already have an event with this name, please delete it first with the command: \n\n'
             f'`<@{bot.get_me().id}> delete-event: {ctx.options.event_name}`')
-    else:
-        await ctx.author.send(
-            "Thank you for using \"Enigma Event Bot\"! Your event will be added shortly, please provide"
-            f' a description in the next message, prefixed with:'
-            f' \n\n`<@{bot.get_me().id}> name:{ctx.options.event_name} description:`')
 
 
 @bot.command
@@ -119,8 +117,8 @@ async def add(ctx: lightbulb.SlashContext):
 @lightbulb.command("update_years", 'Add 5 subsequent years as roles')
 @lightbulb.implements(lightbulb.SlashCommand)
 async def update_year(ctx: lightbulb.SlashContext):
-    #THIS LOOP IS ONLY FOR TESTING
-    #for role in await bot.rest.fetch_roles(config.guild_id):
+    # THIS LOOP IS ONLY FOR TESTING
+    # for role in await bot.rest.fetch_roles(config.guild_id):
     #    if role.name.startswith("20"):
     #        await bot.rest.delete_role(role=role, guild=config.guild_id)
 
@@ -133,13 +131,36 @@ async def update_year(ctx: lightbulb.SlashContext):
 
     for year in years:
         if year not in year_roles.keys():
-            created_role = await bot.rest.create_role(name=str(year), guild=config.guild_id, color=0x00ff00, hoist=True, mentionable=True)
+            created_role = await bot.rest.create_role(name=str(year), guild=config.guild_id, color=0x00ff00, hoist=True,
+                                                      mentionable=True)
             await ctx.respond(f"added role: {year}")
             year_roles[year] = created_role
     await ctx.respond("done")
     role_view = RoleView(year_roles)
-    message = await bot.rest.create_message(config.role_channel, components=role_view, content="React to this message to get your year role!")
+    message = await bot.rest.create_message(config.role_channel, components=role_view,
+                                            content="React to this message to get your year role!")
     await role_view.start(message)
+
+
+def is_reply_action(reply_qualifier: str, event: hikari.GuildMessageCreateEvent) -> (bool, str):
+    """ returns a tuple of (is_reply, reply_content) reply_content is without the reply qualifier"""
+    if not event.is_human or event.message.content is None:
+        return False, None
+    if event.channel_id is config.event_prototype_channel or event.message.type is not event.message.type.REPLY:
+        print("not a reply")
+        return False, None
+    if event.message.referenced_message.author.id != bot.get_me().id:
+        print("not a reply to me")
+        print(event.message.referenced_message.author.id)
+        print(bot.get_me().id)
+        return False, None
+    if event.message.referenced_message.content is None:
+        print("no content")
+        return False, None
+    if not event.message.referenced_message.content.startswith(reply_qualifier):
+        return False, None
+    return True, event.message.referenced_message.content.removeprefix(reply_qualifier + "\n").strip()
+
 
 if __name__ == '__main__':
     bot.run()
