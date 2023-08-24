@@ -19,23 +19,13 @@ post_event_qualifier = "post event qualifier"
 
 
 @bot.listen()
-async def ping(event: hikari.GuildMessageCreateEvent) -> None:
-    if not event.is_human: return
-    if not event.message.user_mentions_ids: return
-
-    if bot.get_me().id in event.message.user_mentions_ids:
-        await event.message.respond("Pong!")
-
-
-@bot.listen()
 async def on_event_description(message: hikari.GuildMessageCreateEvent) -> None:
     (is_reply, event) = is_reply_action(new_event_qualifier, message)
     if not is_reply:
         return
+    print("event description")
     prototype_channel = config.event_prototype_channel
-    print("on event description")
     print(message.content)
-    pattern = r'https?:\/\/[^ ]+\.(png|jpg|svg|webp)'
     img_link = message.content.split("\n")[0]
     event_description = message.content.removeprefix(img_link + "\n")
     print(f'{event_description = }')
@@ -45,16 +35,27 @@ async def on_event_description(message: hikari.GuildMessageCreateEvent) -> None:
     with EventManager() as eventmanager:
         eventmanager.set_event_description(event_name, event_description)
         eventmanager.set_image_link(event_name, img_link)
+        print("event description: ", event_description)
+        print("img link: ", img_link)
         new_event: Event = eventmanager[event_name]
-        print("event name", new_event.name)
 
         await bot.rest.create_message(prototype_channel,
-                                      "your event will be represented like this without the qualifier:\n")
-        await bot.rest.create_message(prototype_channel, f"{post_event_qualifier}\n{new_event}")
+                                      "your event will be represented like this:\n")
+        embed = hikari.Embed(title=event_name, description=str(new_event.description), url=new_event.link,
+                             color=0x00ff00)
+        embed.set_image(new_event.image_link)
+        embed.set_author(name="Enigma", icon="https://avatars.githubusercontent.com/u/112754344?s=200&v=4")
+        embed.set_footer(text="Syddanske Softwarestuderendes Fagråd")
+        print("event name", new_event.name)
+        view = eventviews.EventView(timeout=60)
+        await bot.rest.create_message(prototype_channel, components=view, embed=embed,
+                                                   flags=hikari.MessageFlag.EPHEMERAL)
+        await bot.rest.create_message(prototype_channel, f"{post_event_qualifier}\n{new_event.name}\n **reply to this "
+                                                         f"message to post your event**")
         await bot.rest.create_message(prototype_channel,
                                       f"If you want to change your event, "
                                       f"you can redo this step by"
-                                      f"replying to the message that starts with: {new_event_qualifier} \n "
+                                      f"replying to the message that **starts with: {new_event_qualifier}** \n "
                                       )
 
 
@@ -68,6 +69,7 @@ async def on_event_post(message: hikari.GuildMessageCreateEvent) -> None:
     print(f'{event_name = }')
     with EventManager() as eventmanager:
         new_event: Event = eventmanager[event_name]
+        print("img_link:" + new_event.image_link)
         embed = hikari.Embed(title=event_name, description=str(new_event.description), url=new_event.link,
                              color=0x00ff00)
         embed.set_image(new_event.image_link)
@@ -77,7 +79,7 @@ async def on_event_post(message: hikari.GuildMessageCreateEvent) -> None:
         event_channel = config.event_channel
         view = eventviews.EventView(timeout=60)
         event_post = await bot.rest.create_message(event_channel, components=view, embed=embed,
-                                                flags=hikari.MessageFlag.EPHEMERAL)
+                                                   flags=hikari.MessageFlag.EPHEMERAL)
         await view.start(event_post)
         await message.message.add_reaction("👍")
         eventmanager.submit_event(event_name)
@@ -89,7 +91,7 @@ async def on_event_post(message: hikari.GuildMessageCreateEvent) -> None:
 @lightbulb.option("event_link", "Link to facebook event", str)
 @lightbulb.command('addevent', 'start an event submission')
 @lightbulb.implements(lightbulb.SlashCommand)
-async def add(ctx: lightbulb.SlashContext):
+async def add_event(ctx: lightbulb.SlashContext):
     ''' Message structure is as follows:
         Line 1: qualifier
         Line 2: event name
@@ -107,9 +109,48 @@ async def add(ctx: lightbulb.SlashContext):
         with EventManager() as eventmanager:
             eventmanager.add(Event(ctx.options.event_name, ctx.options.event_link, ctx.author.id))
     except DuplicateEventError as e:
-        await ctx.respond(
-            f'You already have an event with this name, please delete it first with the command: \n\n'
-            f'`<@{bot.get_me().id}> delete-event: {ctx.options.event_name}`')
+        await ctx.respond(f'You already have an event with this name, please delete it or edit it')
+
+
+@bot.command
+@lightbulb.add_checks(lightbulb.has_roles(config.enigma_role_id))
+@lightbulb.option("event_name", "Name of the event", str)
+@lightbulb.command('deleteevent', 'delete an event submission')
+@lightbulb.implements(lightbulb.SlashCommand)
+async def delete_event(ctx: lightbulb.SlashContext):
+    print("delete event")
+    try:
+        with EventManager() as eventmanager:
+            eventmanager.discard(ctx.options.event_name)
+            await ctx.respond(f'Event {ctx.options.event_name} deleted')
+    except DuplicateEventError as e:
+        await ctx.respond('You do not have an event with this name')
+
+
+@bot.command
+@lightbulb.add_checks(lightbulb.has_roles(config.enigma_role_id))
+@lightbulb.command('list-unsubmitted-events', 'list all unsubmitted events')
+@lightbulb.implements(lightbulb.SlashCommand)
+async def list_unsubmitted_events(ctx: lightbulb.SlashContext):
+    print("list unsubmitted events")
+    with EventManager() as eventmanager:
+        events = eventmanager.get_in_progress_events()
+        await ctx.respond(f'Unsubmitted events:')
+        for event in events:
+            await ctx.respond(event)
+
+
+@bot.command
+@lightbulb.add_checks(lightbulb.has_roles(config.enigma_role_id))
+@lightbulb.command('list-submitted-events', 'list all submitted events')
+@lightbulb.implements(lightbulb.SlashCommand)
+async def list_submitted_events(ctx: lightbulb.SlashContext):
+    print("list submitted events")
+    with EventManager() as eventmanager:
+        events = eventmanager.get_submitted_events()
+        await ctx.respond(f'Submitted events:')
+        for event in events:
+            await ctx.respond(event)
 
 
 @bot.command

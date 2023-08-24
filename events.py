@@ -44,7 +44,7 @@ class Event:
         state = EventState(data['state'])
         image_link = data.get('image_link', None)
         description = data.get('description', None)
-        return Event(event_name, event_link, organizer_id, state, description)
+        return Event(event_name, event_link, organizer_id, state, description, image_link=image_link)
 
     def to_dict(self) -> dict:
         return {
@@ -126,6 +126,11 @@ class EventManager(MutableSet):
         event = self[event_name]
         event.state = EventState.submitted
 
+    def get_in_progress_events(self) -> set[Event]:
+        return set(event for event in self.events if event.state == EventState.in_progress)
+
+    def get_submitted_events(self) -> set[Event]:
+        return set(event for event in self.events if event.state == EventState.submitted)
 
 EVENTS_FILE_PATH = 'statefiles'
 EVENTS_FILE_NAME = f'{EVENTS_FILE_PATH}/events.json'
