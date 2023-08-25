@@ -3,6 +3,7 @@
 	"event_channel_id": CHANNEL ID NUMERIC,
 	"enigma_role_id": ROLE ID NUMERIC,
 	"bot_id": BOT ID NUMERIC,
+	"event_prototype_channel_id": CHANNEL ID NUMERIC,
 	"enigma_discord_id": DISCORD GUILD ID NUMERIC,
 	"role_channel_id": CHANNEL ID NUMERIC,
 }
