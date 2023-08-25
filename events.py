@@ -8,14 +8,19 @@ import uuid
 
 from utils import find
 
+
 class EventState(Enum):
     in_progress = 'in_progress'
     submitted = 'submitted'
 
+
 class DuplicateEventError(Exception):
     pass
+
+
 class EventNotFoundError(Exception):
     pass
+
 
 @dataclass
 class Event:
@@ -25,6 +30,7 @@ class Event:
     state: EventState = field(default=EventState.in_progress)
     description: str | None = field(default=None)
     uuid: int = field(default=uuid.uuid4().int)
+    image_link: str | None = field(default=None)
 
     def __eq__(self, other: 'Event') -> bool:
         return self.name == other.name
@@ -36,8 +42,9 @@ class Event:
         event_link = data['link']
         organizer_id = data['organizer_id']
         state = EventState(data['state'])
+        image_link = data.get('image_link', None)
         description = data.get('description', None)
-        return Event(event_name, event_link, organizer_id, state, description)
+        return Event(event_name, event_link, organizer_id, state, description, image_link=image_link)
 
     def to_dict(self) -> dict:
         return {
@@ -46,14 +53,16 @@ class Event:
             'link': self.link,
             'organizer_id': self.organizer_id,
             'state': self.state.value,
+            'image_link': self.image_link,
             'description': self.description
         }
 
     def __str__(self):
-        return f"***{self.name}***\n{self.description}\n\nLink: {self.link}"
+        return f"***{self.name}***\n{self.description}\n\nLink: {self.link} \n\n {self.image_link}"
 
     def __hash__(self) -> int:
         return id(self)
+
 
 class EventManager(MutableSet):
     def __enter__(self) -> 'EventManager':
@@ -108,13 +117,24 @@ class EventManager(MutableSet):
         event = self[event_name]
         event.description = event_description
 
+    def set_image_link(self, event_name: str, image_link: str):
+        event = self[event_name]
+        event.image_link = image_link
+
     def submit_event(self, event_name: str):
+        print("submitting event")
         event = self[event_name]
         event.state = EventState.submitted
 
+    def get_in_progress_events(self) -> set[Event]:
+        return set(event for event in self.events if event.state == EventState.in_progress)
+
+    def get_submitted_events(self) -> set[Event]:
+        return set(event for event in self.events if event.state == EventState.submitted)
 
 EVENTS_FILE_PATH = 'statefiles'
 EVENTS_FILE_NAME = f'{EVENTS_FILE_PATH}/events.json'
+
 
 def load_events() -> set[Event]:
     if not os.path.exists(EVENTS_FILE_NAME):
@@ -125,6 +145,7 @@ def load_events() -> set[Event]:
 
     events: set[Event] = set(Event.from_dict(event) for event in events_dict)
     return events
+
 
 def save_events(events: set[Event]):
     # create parent folders if they don't exist
@@ -138,3 +159,16 @@ if __name__ == '__main__':
     match = pattern.match("<@1101475630807253002> post name:IT DAY!!! 2023")
     if match is not None:
         print(match.group("event_name"))
+    import requests
+
+    url = 'https://avatars.githubusercontent.com/u/112754344?s=200&v=4'
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        content_type = response.headers['content-type']
+        if 'image' in content_type:
+            print('This is a valid image URL.')
+        else:
+            print('This is not an image URL.')
+    else:
+        print('Failed to retrieve the URL.')
