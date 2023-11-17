@@ -77,7 +77,7 @@ async def on_event_post(message: hikari.GuildMessageCreateEvent) -> None:
         embed.set_footer(text="Syddanske Softwarestuderendes Fagråd")
         print("event name", new_event.name)
         event_channel = config.event_channel
-        view = eventviews.EventView(timeout=60)
+        view = eventviews.EventView(timeout=31_629_800)
         event_post = await bot.rest.create_message(event_channel, components=view, embed=embed,
                                                    flags=hikari.MessageFlag.EPHEMERAL)
         await view.start(event_post)
